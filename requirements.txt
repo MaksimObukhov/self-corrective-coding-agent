@@ -1,8 +1,10 @@
 # custom
-langgraph
+langgraph~=0.2.14
 langgraph-cli
 langchain_community
 langchain_anthropic
 langchain_openai
-pydantic
+pydantic~=2.8.2
 pydantic_settings
+datasets==2.12.0
+langchain_experimental==0.3.2

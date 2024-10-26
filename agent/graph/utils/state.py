@@ -1,5 +1,5 @@
 import operator
-from typing import TypedDict, List, Optional, Annotated
+from typing import TypedDict, List, Optional, Annotated, Union
 
 from pydantic import BaseModel, Field, conlist
 
@@ -9,14 +9,18 @@ class SimplifiedProblemState(BaseModel):
 
     title: str = Field(..., description="The title of the problem.")
     context: List[str] = Field(..., description="The context or background of the problem.")
-    objective: List[str] = Field(...,
-                                 description="The main goal or objective of the problem that needs to be achieved.")
-    inputs: List[str] = Field(..., description="Details about the input format and what kind of data is expected.")
+    objective: List[str] = Field(..., description="The main goal or objective of the problem that needs to be "
+                                                  "achieved.")
+    inputs: List[str] = Field(...,
+                              description="Details about the input format and what kind of data is expected.")
     outputs: List[str] = Field(...,
                                description="Details about the output format and what kind of results are expected.")
-    rules: List[str] = Field(..., description="Specific rules that define how the problem should be solved.")
-    constraints: List[str] = Field(..., description="The constraints under which the problem must be solved.")
-    relevant_details: List[str] = Field(default=None, description="Other relevant details that appear in the problem.")
+    rules: List[str] = Field(...,
+                             description="Specific rules that define how the problem should be solved.")
+    constraints: List[str] = Field(...,
+                                   description="The constraints under which the problem must be solved.")
+    relevant_details: List[str] = Field(default=None,
+                                        description="Other relevant details that appear in the problem.")
 
 
 class TestCase(BaseModel):
@@ -36,52 +40,96 @@ class CodeState(BaseModel):
 
 class ExampleProblem(BaseModel):
     description: str = Field(..., description="A detailed description of the problem.")
-    code: str = Field(..., description="Step-by-step solution to the problem in the specified programming language.")
-    planning: str = Field(..., description="The planning process and approach to solve the problem.")
-    algorithm: Algorithm = Field(..., description="The algorithm details used to solve the problem.")
+    plan: str = Field(..., description="The step-by-step plan to solve the problem.")
+    code: str = Field(...,
+                      description="Step-by-step solution to the problem in the specified programming language.")
+    algorithm: Algorithm = Field(...,
+                                 description="The algorithm details used to solve the problem.")
 
 
 class ProblemSetState(BaseModel):
-    problems: conlist(ExampleProblem, max_length=3) = Field(..., description="A list of example problems with \
-    a maximum of 3 items.")
+    problems: List[ExampleProblem] = Field(..., description="A list of ExampleProblem.")
+
+
+class Plan(BaseModel):
+    plan: str = Field(..., description="The step-by-step plan to solve the problem.")
+    algorithm_name: str = Field(..., description="The name of the algorithm used to solve the problem.")
+
+
+class PlanRanked(BaseModel):
+    plan: str = Field(..., description="The step-by-step plan to solve the problem.")
+    algorithm_name: str = Field(..., description="The name of the algorithm used to solve the problem.")
+    confidence: int = Field(..., description="The confidence score regarding the resolvability of the problem.")
 
 
 class PlanningState(BaseModel):
-    plans: List[str] = Field(..., description="The step-by-step plannings process and approach to solve the problem.")
-    # prob_score: float | None = Field(None, description="The probability score of the problem.")
+    plans: List[Plan] = Field(..., description="List of Plans.")
 
 
-default_problem = """\
-Problem description. Vipul is a hardworking super-hero who maintains the bracket ratio of all the strings in the \
-world. Recently he indulged himself in saving the string population so much that he lost his ability for checking \
-brackets (luckily, not permanently ).Being his super-hero friend help him in his time of hardship. Input The first \
-line of the input contains an integer T denoting the number of test cases. The description of T test cases follows. \
-The first line of each test case contains a single string S denoting the string to be checked. Output For each test \
-case, output a single line printing "YES" or "NO" (without " " and in uppercase only) , denoting if the brackets in \
-the given string is balanced or not . Constraints 1 ≤ T ≤ 10 1 ≤ length of S ≤ 60 Example Input: 3 ((())) (())() ()(() \
-Output: YES YES NO   Explanation Example is self-explanatory.
-"""
+class RankingState(BaseModel):
+    plans: List[PlanRanked] = Field(..., description="List of ranked plans.")
 
-default_tests = {"input": ["3\n((()))\n(())()\n()(()"], "output": ["YES\nYES\nNO"]}
+
+
+
+
+class TestResult(BaseModel):
+    """Model for individual test case results"""
+    input: str = Field(..., description="Input that was tested")
+    expected: str = Field(..., description="Expected output")
+    actual: str = Field(..., description="Actual output received")
+    passed: bool = Field(..., description="Whether the test passed")
+    error_message: Optional[str] = Field(None, description="Error message if test failed")
+    test_index: int = Field(..., description="Index of the test case")
+
+
+class DebugInfo(BaseModel):
+    """Model for debug information"""
+    error_type: str = Field(..., description="Type of error (compilation/runtime)")
+    error_message: Optional[str] = Field(None, description="Error message if compilation failed")
+    failed_cases: Optional[List[TestResult]] = Field(None, description="Details of failed test cases")
+    code: str = Field(..., description="Code that was tested")
+
+
+class TestEvaluationResult(BaseModel):
+    """Model for overall test evaluation results"""
+    status: str = Field(..., description="Overall test execution status")
+    all_tests_passed: bool = Field(..., description="Whether all tests passed")
+    compile_error: Optional[str] = Field(None, description="Compilation error if any")
+    failed_tests: List[TestResult] = Field(default_factory=list, description="List of failed tests")
+    requires_debugging: bool = Field(..., description="Whether debugging is needed")
+    debug_info: Optional[DebugInfo] = Field(None, description="Debug information if needed")
 
 
 class State(TypedDict):
-    # Input states
-    original_problem: str
-    public_tests: TestCase
-    private_tests: Optional[TestCase]
-    programming_language: str
-    k_retrieved: int
-    t_debugged: int
-    runtime_limit: Optional[int]
-    status: Optional[str]
-    # cf_tags_hidden: List[str]  # If needed, uncomment and add appropriate import for cf_tags_hidden
+    """
+    Represents the complete state of the problem-solving workflow.
 
-    # Obtained states during graph workflow
-    current_k: Optional[int]
-    simplified_problem: Optional[SimplifiedProblemState]
-    example_problems: Optional[Annotated[ProblemSetState, operator.add]]
-    gen_plans: Optional[List[PlanningState]]
-    current_plan: Optional[PlanningState]
-    ai_gen_tests: Optional[TestCase]
-    code: Optional[CodeState]
+    Input States:
+    - Initialized at the start of the workflow
+
+    Workflow States:
+    - Updated during the execution of the workflow
+    """
+
+    # Input states - Required at initialization
+    original_problem: str  # Original problem text/description
+    public_tests: TestCase  # Public test cases for validation
+    programming_language: str  # Target programming language
+    k_retrieved: int  # Maximum number of examples to retrieve
+    t_debugged: int  # Maximum number of debug attempts
+
+    # Input states - Optional at initialization
+    private_tests: Optional[TestCase]  # Additional private test cases
+    runtime_limit: Optional[int]  # Maximum runtime allowed
+    status: Optional[str]  # Current status of the workflow
+
+    # Workflow states - Updated during execution
+    k_current: Optional[int]  # Current number of examples retrieved
+    t_current: Optional[int]  # Current number of debug attempts
+    simplified_problem: Optional[SimplifiedProblemState]  # Processed problem definition
+    example_problems: Optional[Annotated[ProblemSetState, operator.add]]  # Retrieved similar examples
+    gen_plans: Optional[Union[PlanningState, RankingState]]  # Generated solution plans
+    current_plan: Optional[Union[PlanningState, RankingState]]  # Currently active plan
+    ai_gen_tests: Optional[TestCase]  # AI-generated test cases
+    code: Optional[str]  # Generated solution code
