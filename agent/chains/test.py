@@ -1,47 +1,54 @@
-import json
-import yaml
+import sys
+from io import StringIO
 
-# The JSON string
-json_data = '''
-{
-  "output": {
-    "title": "Bracket Balance Checker",
-    "context": [
-      "Vipul is a superhero who ensures the bracket ratio of strings is maintained.",
-      "He has temporarily lost the ability to check brackets.",
-      "The user is tasked with helping him by checking whether the brackets in given strings are balanced."
-    ],
-    "objective": [
-      "Determine if the brackets in each provided string are balanced.",
-      "Output 'YES' if balanced, 'NO' otherwise."
-    ],
-    "inputs": [
-      "An integer T denoting the number of test cases.",
-      "For each test case, a string S that contains only brackets."
-    ],
-    "outputs": [
-      "For each test case, output 'YES' if the string has balanced brackets, otherwise output 'NO'."
-    ],
-    "rules": [
-      "A string is considered balanced if every opening bracket '(' has a corresponding closing bracket ')'.",
-      "The order of brackets must also be valid; i.e., no closing bracket should appear before its matching opening bracket."
-    ],
-    "constraints": [
-      "1 ≤ T ≤ 10",
-      "1 ≤ length of S ≤ 60"
-    ],
-    "relevant_details": [
-      "The problem is focused on checking parentheses, which is a common problem in programming and algorithms."
-    ]
-  }
-}
-'''
 
-# Parse the JSON string into a Python dictionary
-data = json.loads(json_data)
+# def solve(input_str):
+#     sys.stdin = StringIO(input_str)
+#     for __ in range(int(input())):
+#         n, k = map(int, sys.stdin.readline().split())
+#         lists = map(int, sys.stdin.readline().split())
+#         dp = [0] * (k + 1)
+#         dp[0] = 1
+#         for i in lists:
+#             for j in range(k - i, -1, -1):
+#                 if dp[k]:
+#                     break
+#                 if dp[j]:
+#                     dp[j + i] = 1
+#         print(dp[k])
 
-# Convert the dictionary to a YAML string
-yaml_data = yaml.dump(data, default_flow_style=False)
 
-# Print the YAML string
-print(yaml_data)
+import sys
+
+input = sys.stdin.read
+data = input().splitlines()
+
+T = int(data[0])
+results = []
+
+index = 1
+for _ in range(T):
+    N, K = map(int, data[index].split())
+    if N == 0:
+        results.append(0)
+        index += 1
+        continue
+    arr = list(map(int, data[index + 1].split()))
+
+    dp = [[False] * (K + 1) for _ in range(N + 1)]
+    dp[0][0] = True  # 0 sum is always possible with 0 elements
+
+    for i in range(1, N + 1):
+        dp[i][0] = True  # 0 sum is possible with any number of elements
+        for j in range(1, K + 1):
+            if arr[i - 1] <= j:
+                dp[i][j] = dp[i - 1][j] or dp[i - 1][j - arr[i - 1]]
+            else:
+                dp[i][j] = dp[i - 1][j]
+
+    results.append(1 if dp[N][K] else 0)
+    index += 2
+
+print('\n'.join(map(str, results)))
+
+

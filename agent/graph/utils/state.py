@@ -23,11 +23,6 @@ class SimplifiedProblemState(BaseModel):
                                         description="Other relevant details that appear in the problem.")
 
 
-class TestCase(BaseModel):
-    input: List[str] = Field(..., description="A List of strings representing the input for the test case..")
-    output: List[str] = Field(..., description="A List of strings representing the expected output for the test case.")
-
-
 class Algorithm(BaseModel):
     name: str = Field(..., description="The name of the algorithm used to solve the problem.")
     tutorial: str = Field(..., description="A high-level, generic tutorial about the algorithm.")
@@ -70,7 +65,10 @@ class RankingState(BaseModel):
     plans: List[PlanRanked] = Field(..., description="List of ranked plans.")
 
 
-
+class TestCase(BaseModel):
+    input: str = Field(..., description="strings representing the input for the test case..")
+    expected_output: str = Field(..., description="strings representing the expected output for the test case.")
+    is_public: bool = Field(..., description="Whether the test case is public or not.")
 
 
 class TestResult(BaseModel):
@@ -95,9 +93,9 @@ class TestEvaluationResult(BaseModel):
     """Model for overall test evaluation results"""
     status: str = Field(..., description="Overall test execution status")
     all_tests_passed: bool = Field(..., description="Whether all tests passed")
+    requires_debugging: Optional[bool] = Field(None, description="Whether debugging is needed")
     compile_error: Optional[str] = Field(None, description="Compilation error if any")
-    failed_tests: List[TestResult] = Field(default_factory=list, description="List of failed tests")
-    requires_debugging: bool = Field(..., description="Whether debugging is needed")
+    failed_tests: Optional[List[TestResult]] = Field(default_factory=list, description="List of failed tests")
     debug_info: Optional[DebugInfo] = Field(None, description="Debug information if needed")
 
 
@@ -114,15 +112,13 @@ class State(TypedDict):
 
     # Input states - Required at initialization
     original_problem: str  # Original problem text/description
-    public_tests: TestCase  # Public test cases for validation
+    public_tests: TestCase | dict  # Public test cases for validation
     programming_language: str  # Target programming language
     k_retrieved: int  # Maximum number of examples to retrieve
     t_debugged: int  # Maximum number of debug attempts
 
     # Input states - Optional at initialization
-    private_tests: Optional[TestCase]  # Additional private test cases
-    runtime_limit: Optional[int]  # Maximum runtime allowed
-    status: Optional[str]  # Current status of the workflow
+    private_tests: Optional[TestCase | dict]  # Additional private test cases
 
     # Workflow states - Updated during execution
     k_current: Optional[int]  # Current number of examples retrieved
@@ -133,3 +129,4 @@ class State(TypedDict):
     current_plan: Optional[Union[PlanningState, RankingState]]  # Currently active plan
     ai_gen_tests: Optional[TestCase]  # AI-generated test cases
     code: Optional[str]  # Generated solution code
+    test_evaluation_result: Optional[TestEvaluationResult]  # Current status of the workflow

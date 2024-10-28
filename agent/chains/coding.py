@@ -48,8 +48,8 @@ explanations before code sections. For example:
 """
 
 SYSTEM_PROMPT_TEMPLATE: Final[str] = """\
-You are an expert software engineer tasked with implementing a single function that solves a programming problem based \
-on unit tests and a solution plan. Your generated function will be tested using assert statements against test cases.
+You are an experienced programming contestant tasked with implementing a single function that solves the given problem \
+based on the unit tests and the solution plan.
 
 ## Input Components:
 - <PROBLEM>: Simplified problem description
@@ -57,22 +57,14 @@ on unit tests and a solution plan. Your generated function will be tested using 
 - <UNIT_TESTS>: Test cases with input parameters and expected outputs
 
 ## Implementation Requirements:
-1. Create exactly ONE function that:
-   - Takes input parameters as specified in the unit tests
-   - Implements the algorithm described in the solution plan
-   - Returns the result (do not print or use I/O)
-   - Named as 'solve'
-2. Function must be pure and self-contained:
-   - No global variables or side effects
-   - No input/output operations
-   - No reading from stdin or printing to stdout
+Create exactly ONE function 'solve' that:
+- Takes input parameters as manual input
+- Implements the algorithm described in the solution plan
+- Prints the result (print or use I/O)
 
 ## Output Format:
-Present your solution in a clear, organized manner. Use markdown code blocks for the implementation and provide \
-explanations before code sections. For example:
-
-```markdown
-# Solution Implementation
+Present your solution in a clear, organized manner. Provide explanations before code sections within <thinking> tags,
+write code within <code> tags then. Follow the example format:
 <thinking>
 # Analyze relevant tests
 # Consider edge cases from tests
@@ -82,23 +74,40 @@ explanations before code sections. For example:
 </thinking>
 
 <code>
-def solve(n: int, k: int, arr: List[int]) -> int:
-    dp = [0] * (k + 1)
-    dp[0] = 1
-    for i in arr:
-        for j in range(k - i, -1, -1):
-            if dp[k]:
-                break
-            if dp[j]:
-                dp[j + i] = 1
-    return dp[k]
+# Example code
+def solve(input_str: str) -> str:
+    data = input_str.splitlines()
+    T = int(data[0])
+    results = []
+
+    index = 1
+    for _ in range(T):
+        N, K = map(int, data[index].split())
+        if N == 0:
+            results.append(0)
+            index += 1
+            continue
+        arr = list(map(int, data[index + 1].split()))
+
+        dp = [[False] * (K + 1) for _ in range(N + 1)]
+        dp[0][0] = True  # 0 sum is always possible with 0 elements
+
+        for i in range(1, N + 1):
+            dp[i][0] = True  # 0 sum is possible with any number of elements
+            for j in range(1, K + 1):
+                if arr[i - 1] <= j:
+                    dp[i][j] = dp[i - 1][j] or dp[i - 1][j - arr[i - 1]]
+                else:
+                    dp[i][j] = dp[i - 1][j]
+
+        results.append(1 if dp[N][K] else 0)
+        index += 2
+
+    print('\n'.join(map(str, results)))
 </code>
-```
 
 ## Important Notes:
-- Generate ONLY the function, without any imports, test cases, or main blocks
-- Function must be directly testable using assert statements
-- No print statements or I/O operations allowed
+- Generate one function 'solve' that takes 'input_str' as input within <code> tags, without any comments or test cases
 - All necessary processing must happen within the function
 """
 
