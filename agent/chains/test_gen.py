@@ -5,6 +5,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, \
     HumanMessagePromptTemplate
 
+from agent.chains.simplifier import format_test_case_as_str
 from agent.graph.utils.state import State
 
 SYSTEM_PROMPT_TEMPLATE: Final[str] = """\
@@ -108,11 +109,16 @@ class TestGenAgent:
 
     async def __call__(self, state: State) -> dict:
         plans_sorted = state["gen_plans"].plans
-        i = state["k_current"]
+        t = state["t_current"]
+        solution_plan = f'Algorith name: {plans_sorted[t].algorithm_name}\nPlan: {plans_sorted[t].plan}'
+
+        public_tests = state["public_tests"]
+        tests_as_str = '\n\n'.join(format_test_case_as_str(i, case) for i, case in enumerate(public_tests))
+
         chain_in = {
             'PROBLEM_DESCRIPTION': state["simplified_problem"],
-            'SOLUTION_PLAN': plans_sorted[i],
-            'PUBLIC_TESTS': state["public_tests"],
+            'SOLUTION_PLAN': solution_plan,
+            'PUBLIC_TESTS': tests_as_str,
         }
         ai_msg = await self.runnable.with_config(configurable={"llm_temperature": 0.5}).ainvoke(chain_in)
-        return {"ai_gen_tests": ai_msg}
+        return {"ai_gen_tests": ai_msg, "k_current": 0}

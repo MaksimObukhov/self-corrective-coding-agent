@@ -8,6 +8,13 @@ from typing import List, Dict, Optional
 from agent.graph.utils.state import State, TestCase, TestResult, DebugInfo, TestEvaluationResult
 
 
+def format_values(value: str) -> str:
+    split_values = value.split()
+    if len(split_values) > 30:
+        return " ".join(split_values[:15]) + " ... " + " ".join(split_values[-15:])
+    return " ".join(split_values)
+
+
 class TestEvaluator:
     def __init__(self, solve_function_str: str):
         """
@@ -55,7 +62,7 @@ class TestEvaluator:
                 input=input_str,
                 expected=expected_output,
                 actual=actual_output,
-                passed=actual_output == expected_output,
+                passed=" ".join(expected_output.strip().split()) == " ".join(actual_output.strip().split()),
                 test_index=test_index
             )
 
@@ -96,8 +103,8 @@ class TestEvaluator:
                 requires_debugging=True,
                 debug_info=DebugInfo(
                     error_type="compilation",
-                    error_message=self.compile_error,
-                    code=self.solve_function_str
+                    compile_error_message=self.compile_error,
+                    code=self.solve_function_str,
                 )
             )
 
@@ -114,26 +121,31 @@ class TestEvaluator:
             if not test_result.passed:
                 all_passed = False
 
-            results.append(f"""
+            # Format Input, Expected, and Got fields
+            formatted_input = format_values(test_result.input)
+            formatted_expected = format_values(test_result.expected)
+            formatted_actual = format_values(test_result.actual)
+
+            results.append(f"""\
 Test Case {i + 1}:
 Input:
-{test_result.input}
+{formatted_input}
 Expected:
-{test_result.expected}
+{formatted_expected}
 Got:
-{test_result.actual}
+{formatted_actual}
 Status: {'PASSED' if test_result.passed else 'FAILED'}
 """ + (f"Error:\n{test_result.error_message}" if test_result.error_message else ""))
 
         return TestEvaluationResult(
             status="\n".join(results),
             all_tests_passed=all_passed,
-            failed_tests=self.failed_tests,
             requires_debugging=len(self.failed_tests) > 0,
             debug_info=DebugInfo(
                 error_type="runtime",
+                compile_error_message=self.compile_error,
                 failed_cases=self.failed_tests,
-                code=self.solve_function_str
+                code=self.solve_function_str,
             ) if self.failed_tests else None
         )
 
@@ -142,27 +154,21 @@ async def test_evaluation_node(state: State) -> Dict:
     """Node function for the langgraph that evaluates the code against test cases."""
 
     code = state.get("code", "")
-    public_tests = state.get("public_tests", {})
-    private_tests = state.get("private_tests", {})
-
-    # Convert tests to TestCase format if needed
-    def convert_to_test_case(tests_dict: Dict, is_public: bool = False) -> List[TestCase]:
-        return [
-            TestCase(input=inp, expected_output=out, is_public=is_public)
-            for inp, out in zip(tests_dict.get('input', []), tests_dict.get('output', []))
-        ]
+    public_tests = state.get("public_tests", [])
+    private_tests = state.get("private_tests", [])
+    all_test_cases = []
 
     # Process test cases
     if not public_tests:
         raise ValueError("No public test cases found")
 
-    test_cases = convert_to_test_case(public_tests, is_public=True)
+    all_test_cases.extend(public_tests)
     if private_tests:
-        test_cases.extend(convert_to_test_case(private_tests))
+        all_test_cases.extend(private_tests)
 
     # Create evaluator and run tests
     evaluator = TestEvaluator(code)
-    results = evaluator.evaluate_test_cases(test_cases)
+    results = evaluator.evaluate_test_cases(all_test_cases)
 
     # Prepare the state update with additional error handling
     state_update = {
@@ -174,14 +180,8 @@ async def test_evaluation_node(state: State) -> Dict:
     if not results.all_tests_passed:
         debug_info = results.debug_info.model_dump() if results.debug_info else None
         state_update.update({
-            "compile_error": results.compile_error,
-            "failed_tests": [test.model_dump() for test in results.failed_tests],
             "requires_debugging": True,
             "debug_info": debug_info
         })
 
-    # Update the state with the test evaluation result
-    state["test_evaluation_result"] = TestEvaluationResult(**state_update)
-
-    return state
-
+    return {"test_evaluation_result": TestEvaluationResult(**state_update)}

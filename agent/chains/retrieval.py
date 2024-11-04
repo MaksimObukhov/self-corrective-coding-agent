@@ -1,5 +1,7 @@
+import re
 from typing import Final
 
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, \
     HumanMessagePromptTemplate
 
@@ -11,7 +13,7 @@ Given the problem description, provide relevant problems then identify the algor
 tutorial of the algorithm.
 
 # Exemplars:
-Recall {k} relevant and distinct problems (different from problem mentioned above). For each problem:
+Recall {t} relevant and distinct problems (different from problem mentioned above). For each problem:
 1. Think about how it relates to the main problem and why it's relevant
 2. Consider different approaches to solving the problem
 3. Plan out the solution step-by-step as numbered list
@@ -20,7 +22,7 @@ Recall {k} relevant and distinct problems (different from problem mentioned abov
 
 ----------------
 Important: Before providing the solutions, think through the problem carefully and consider various approaches. \
-The output should be correctly formatted as a XML instance that conforms to the given schema below:
+The output should be correctly formatted as the given schema below:
 
 <thinking>
 # Analyze the main problem and consider its key characteristics
@@ -54,7 +56,7 @@ The output should be correctly formatted as a XML instance that conforms to the 
   
   <algorithm>
     <name> # Identify the algorithm (Brute-force, Dynamic Programming, Divide-and-conquer, Greedy, Backtracking, 
-    Recursive, Binary search, and so on) that needs to be used to solve the original problem. </name>
+    Recursive, Binary search, and so on) that needs to be used to solve current problem. </name>
     <tutorial> # Write a useful tutorial about the above mentioned algorithms. Provide a high level generic tutorial 
     for solving this types of problem. Do not generate code. </tutorial>
   </algorithm>
@@ -71,7 +73,6 @@ HUMAN_PROMPT_TEMPLATE = """\
 """
 
 
-# TODO: write simple regex extracting problems and deleting thinkings
 class SelfRetrieverAgent:
     def __init__(self, llm):
         # self.llm = llm.with_structured_output(ProblemSetState)
@@ -82,13 +83,18 @@ class SelfRetrieverAgent:
                 HumanMessagePromptTemplate.from_template(HUMAN_PROMPT_TEMPLATE),
             ]
         )
-        self.runnable = self.prompt | self.llm
+        self.runnable = (
+                self.prompt
+                | self.llm
+                | StrOutputParser()
+                | (lambda text: re.sub(r"<thinking>.*?</thinking>", "", text, flags=re.DOTALL))
+        )
 
     async def __call__(self, state: State) -> dict:
         chain_in = {
             'simplified_problem': state["simplified_problem"],
             'programming_language': state["programming_language"],
-            'k': state["k_retrieved"],
+            't': state["t_plan"],
         }
         ai_msg = await self.runnable.with_config(configurable={"llm_temperature": 0.3}).ainvoke(chain_in)
         return {"example_problems": ai_msg}

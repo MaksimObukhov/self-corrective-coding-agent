@@ -50,9 +50,9 @@ class RankingAgent:
             {
                 'simplified_problem': state["simplified_problem"],
                 'programming_language': state["programming_language"],
-                'gen_plan': plans[i],
+                'gen_plan': plans[t],
             }
-            for i in range(len(plans))
+            for t in range(len(plans))
         ]
         planning_states_list = await self.runnable.with_config(configurable={"llm_temperature": 0.1}).abatch(chain_in)
 
@@ -62,4 +62,4 @@ class RankingAgent:
         # Step 2: Sort the merged plans by confidence in descending order
         sorted_plans = sorted(all_plans, key=lambda x: x.confidence, reverse=True)
 
-        return {"gen_plans": RankingState(plans=sorted_plans), "k_current": 0}
+        return {"gen_plans": RankingState(plans=sorted_plans), "t_current": 0, "k_tries": 0}

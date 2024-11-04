@@ -3,6 +3,7 @@ from typing import Final
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, \
     HumanMessagePromptTemplate
 
+from agent.chains.simplifier import format_test_case_as_str
 from agent.graph.utils.state import State, PlanningState
 
 SYSTEM_PROMPT_TEMPLATE: Final[str] = """
@@ -12,8 +13,7 @@ develop a comprehensive understanding.
 
 ----------------
 Important: Think through each algorithm step-by-step before writing it. Clearly break down the logic and approach \
-for each distinct solution. The output should be correctly formatted as a XML instance that conforms to the given \
-schema below:
+for each distinct solution. The output should be correctly formatted as the given schema below:
 
 <thinking>
   # Analyze the main problem and its requirements
@@ -21,7 +21,8 @@ schema below:
   # Reflect on the test cases and what they reveal about edge cases or specific requirements
   # Brainstorm potential approaches, considering their pros and cons
 </thinking>
-<algorithm_name> # Name of the algorithm that needs to solve the problem </algorithm_name>
+<algorithm_name> # Identify the algorithm (Brute-force, Dynamic Programming, Divide-and-conquer, Greedy, Backtracking, \
+    Recursive, Binary search, and so on) that needs to be used to solve the given problem. </algorithm_name>
 <plan> # Concrete plan to implement the first algorithm as numbered list. </plan>
 
 <thinking>
@@ -29,7 +30,8 @@ schema below:
   # Think about different paradigms or techniques that could be applied
   # Consider trade-offs between time complexity, space complexity, and implementation simplicity
 </thinking>
-<algorithm_name> # Name of the algorithm that needs to solve the problem </algorithm_name>
+<algorithm_name> # Identify the algorithm (Brute-force, Dynamic Programming, Divide-and-conquer, Greedy, Backtracking, \
+    Recursive, Binary search, and so on) that needs to be used to solve the given problem. </algorithm_name>
 <plan> # Concrete plan to implement the second algorithm as numbered list. </plan>
 
 <thinking>
@@ -37,7 +39,8 @@ schema below:
   # Consider any aspects of the problem not fully addressed by the first two approaches
   # Think about innovative or unconventional methods that could be applied
 </thinking>
-<algorithm_name> # Name of the algorithm that needs to solve the problem </algorithm_name>
+<algorithm_name> # Identify the algorithm (Brute-force, Dynamic Programming, Divide-and-conquer, Greedy, Backtracking, \
+    Recursive, Binary search, and so on) that needs to be used to solve the given problem. </algorithm_name>
 <plan> # Concrete plan to implement the third algorithm as numbered list. </plan>
 """
 
@@ -70,11 +73,12 @@ class PlanningAgent:
         self.runnable = self.prompt | self.llm
 
     async def __call__(self, state: State) -> dict:
+        test_cases = state["public_tests"]
+        tests_as_str = '\n\n'.join(format_test_case_as_str(i, case) for i, case in enumerate(test_cases))
         chain_in = {
             'simplified_problem': state["simplified_problem"],
-            'public_tests': state["public_tests"],
+            'public_tests': tests_as_str,
             'example_problems': state["example_problems"],
-            # 'k': state["k_retrieved"],
         }
         ai_msg = await self.runnable.with_config(configurable={"llm_temperature": 0.3}).ainvoke(chain_in)
         return {"gen_plans": ai_msg}

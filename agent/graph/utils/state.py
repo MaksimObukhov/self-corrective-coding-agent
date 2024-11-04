@@ -1,5 +1,5 @@
 import operator
-from typing import TypedDict, List, Optional, Annotated, Union
+from typing import TypedDict, List, Optional, Annotated, Union, Literal
 
 from pydantic import BaseModel, Field, conlist
 
@@ -26,11 +26,6 @@ class SimplifiedProblemState(BaseModel):
 class Algorithm(BaseModel):
     name: str = Field(..., description="The name of the algorithm used to solve the problem.")
     tutorial: str = Field(..., description="A high-level, generic tutorial about the algorithm.")
-
-
-class CodeState(BaseModel):
-    # todo
-    pass
 
 
 class ExampleProblem(BaseModel):
@@ -68,7 +63,6 @@ class RankingState(BaseModel):
 class TestCase(BaseModel):
     input: str = Field(..., description="strings representing the input for the test case..")
     expected_output: str = Field(..., description="strings representing the expected output for the test case.")
-    is_public: bool = Field(..., description="Whether the test case is public or not.")
 
 
 class TestResult(BaseModel):
@@ -77,16 +71,16 @@ class TestResult(BaseModel):
     expected: str = Field(..., description="Expected output")
     actual: str = Field(..., description="Actual output received")
     passed: bool = Field(..., description="Whether the test passed")
-    error_message: Optional[str] = Field(None, description="Error message if test failed")
     test_index: int = Field(..., description="Index of the test case")
+    error_message: Optional[str] = Field(None, description="Error message if test failed")
 
 
 class DebugInfo(BaseModel):
     """Model for debug information"""
-    error_type: str = Field(..., description="Type of error (compilation/runtime)")
-    error_message: Optional[str] = Field(None, description="Error message if compilation failed")
-    failed_cases: Optional[List[TestResult]] = Field(None, description="Details of failed test cases")
     code: str = Field(..., description="Code that was tested")
+    error_type: Literal['compilation', 'runtime'] = Field(..., description="Type of error (compilation/runtime)")
+    compile_error_message: Optional[str] = Field(None, description="Error message if compilation failed")
+    failed_cases: Optional[List[TestResult]] = Field(None, description="Details of failed test cases")
 
 
 class TestEvaluationResult(BaseModel):
@@ -94,8 +88,6 @@ class TestEvaluationResult(BaseModel):
     status: str = Field(..., description="Overall test execution status")
     all_tests_passed: bool = Field(..., description="Whether all tests passed")
     requires_debugging: Optional[bool] = Field(None, description="Whether debugging is needed")
-    compile_error: Optional[str] = Field(None, description="Compilation error if any")
-    failed_tests: Optional[List[TestResult]] = Field(default_factory=list, description="List of failed tests")
     debug_info: Optional[DebugInfo] = Field(None, description="Debug information if needed")
 
 
@@ -112,17 +104,16 @@ class State(TypedDict):
 
     # Input states - Required at initialization
     original_problem: str  # Original problem text/description
-    public_tests: TestCase | dict  # Public test cases for validation
+    public_tests: List[TestCase]  # Public test cases for validation
+    private_tests: List[TestCase] # Additional private test cases
     programming_language: str  # Target programming language
-    k_retrieved: int  # Maximum number of examples to retrieve
-    t_debugged: int  # Maximum number of debug attempts
-
-    # Input states - Optional at initialization
-    private_tests: Optional[TestCase | dict]  # Additional private test cases
+    k_debug: int  # Maximum number of debug attempts
+    t_plan: int  # Maximum number of examples to retrieve
 
     # Workflow states - Updated during execution
-    k_current: Optional[int]  # Current number of examples retrieved
-    t_current: Optional[int]  # Current number of debug attempts
+    k_tries: Optional[int]  # Total number of debugging runs
+    k_current: Optional[int]  # Current number of debug attempts
+    t_current: Optional[int]  # Current number of examples retrieved
     simplified_problem: Optional[SimplifiedProblemState]  # Processed problem definition
     example_problems: Optional[Annotated[ProblemSetState, operator.add]]  # Retrieved similar examples
     gen_plans: Optional[Union[PlanningState, RankingState]]  # Generated solution plans

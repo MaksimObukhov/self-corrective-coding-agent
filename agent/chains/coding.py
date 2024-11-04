@@ -124,7 +124,7 @@ HUMAN_PROMPT_TEMPLATE: Final[str] = """\
 
 3. UNIT_TESTS:
 <UNIT_TESTS>
-{UNIT_TESTS}
+{AI_GEN_TESTS}
 </UNIT_TESTS>
 
 Now, implement the solution in {PROGRAMMING_LANGUAGE} based on the provided <PROBLEM>, <SOLUTION_PLAN> and <UNIT_TESTS>.
@@ -150,13 +150,13 @@ class CodingAgent:
 
     async def __call__(self, state: State) -> dict:
         plans_sorted = state["gen_plans"].plans
-        i = state["k_current"]
-        solution_plan = f'Algorith name: {plans_sorted[i].algorithm_name}\nPlan: {plans_sorted[i].plan}'
+        t = state["t_current"]
+        solution_plan = f'Algorith name: {plans_sorted[t].algorithm_name}\nPlan: {plans_sorted[t].plan}'
         chain_in = {
             'PROBLEM': state["simplified_problem"],
             'PROGRAMMING_LANGUAGE': state["programming_language"],
             'SOLUTION_PLAN': solution_plan,
-            'UNIT_TESTS': state["ai_gen_tests"],
+            'AI_GEN_TESTS': state["ai_gen_tests"],
         }
         ai_msg = await self.runnable.with_config(configurable={"llm_temperature": 0.1}).ainvoke(chain_in)
         return {"code": ai_msg}

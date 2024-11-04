@@ -1,12 +1,10 @@
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, \
     HumanMessagePromptTemplate
 
-from agent.graph.utils.state import State, SimplifiedProblemState
+from agent.graph.utils.nodes import format_values
+from agent.graph.utils.state import State, SimplifiedProblemState, TestCase
 from agent.graph.utils.tools import yaml_parser
 
-# TODO:
-#  1. add problem_title as variable
-#  2. split into system-human, so that we can cache system
 SYSTEM_PROMPT_TEMPLATE = """\
 You are a world-class competitive programming problems solver. Describe the given [Complex coding contest problem] in \
 bullet points, while addressing the problem context, objective, inputs, outputs, rules, constraints, and other \
@@ -19,7 +17,7 @@ aspects. Think through each field step-by-step before writing it. The output sho
 instance that conforms to the given schema below:
 
   
-<title> problem_title from the dataset </title>
+<title> # Problem title </title>
 
 <thinking>
 # Consider the real-world scenario or abstract setting of the problem
@@ -79,13 +77,26 @@ instance that conforms to the given schema below:
 <relevant_details> # Bullet points describing any additional relevant details </relevant_details>
 """
 
-
 HUMAN_PROMPT_TEMPLATE = """\
 Complex coding contest problem:
 {original_problem}
 
 Test cases:
 {public_tests}
+"""
+
+
+def format_test_case_as_str(counter: int, test_case: TestCase) -> str:
+    # Limiting the Input and Expected output to first 20 values if they exceed that
+    formatted_input = format_values(test_case.input)
+    formatted_expected = format_values(test_case.expected_output)
+
+    return f"""\
+Test Case {counter}:
+Input:
+{formatted_input}
+Expected:
+{formatted_expected}
 """
 
 
@@ -102,9 +113,11 @@ class SimplifierAgent:
         self.runnable = self.prompt | self.llm | yaml_parser
 
     async def __call__(self, state: State) -> dict:
+        test_cases = state["public_tests"]
+        tests_as_str = '\n\n'.join(format_test_case_as_str(i, case) for i, case in enumerate(test_cases))
         chain_in = {
             'original_problem': state["original_problem"],
-            'public_tests': state["public_tests"],
+            'public_tests': tests_as_str,
         }
         ai_msg = await self.runnable.with_config(configurable={"llm_temperature": 0.1}).ainvoke(chain_in)
         return {"simplified_problem": ai_msg}

@@ -1,8 +1,12 @@
+import random
+import re
 from typing import Final
 
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 
-from agent.graph.utils.state import State
+from agent.graph.utils.nodes import format_values
+from agent.graph.utils.state import State, TestResult
 
 SYSTEM_PROMPT_TEMPLATE: Final[str] = """\
 You are an expert debugging agent tasked with analyzing and fixing code that has failed to pass public and private \
@@ -10,24 +14,24 @@ tests in a test-driven development environment. Your goal is to identify issues,
 debugged code that passes all tests.
 
 ## Input Variables:
+- <SOLUTION_PLAN>: The original plan for implementing the solution.
 - <ORIGINAL_CODE>: The code that failed to pass the tests.
 - <FAILED_TESTS>: Detailed information about the failed tests, including test cases and expected outputs.
 - <COMPILER_ERROR>: Any compiler or syntax errors encountered (if applicable).
-- <SOLUTION_PLAN>: The original plan for implementing the solution.
 
 ## Your Tasks:
 1. Analyze the provided information carefully, focusing on:
+   - Given solution plan
    - Compiler errors (if any)
    - Failed test cases
    - Discrepancies between expected and actual outputs
-2. Engage in a comprehensive reflection process:
+2. Engage in a comprehensive reflection process following these 5 steps:
    <thinking>
    1. Identify the type of error (syntax, logical, runtime, etc.)
    2. Trace the code execution for failed test cases
-   3. Compare the implementation against the problem description and solution plan
+   3. Compare the implementation against the solution plan
    4. Consider potential edge cases or scenarios not adequately handled
-   5. Evaluate if the original solution approach is fundamentally sound or needs revision
-   6. Hypothesize about the root cause of the failures
+   5. Hypothesize about the root cause of the failures
    </thinking>
 3. Develop a debugging strategy based on your reflection.
 4. Implement fixes to address the identified issues:
@@ -36,65 +40,70 @@ debugged code that passes all tests.
    - Refactor code if necessary to better align with the problem description and solution plan
 
 ## Output Format:
-Present your analysis, reflection, and debugged solution in a clear, organized manner. Use markdown formatting for \
-readability. For example:
-
-# Debugging Analysis and Solution
+Present your analysis, reflection, debugging strategy and debugged code solution within corresponding tags. \
+Write debugged code within <code> tags, do not include ``` blocks. Follow the example format:
 
 ## 1. Error Analysis
-<thinking>
-[Detailed thought process about the errors encountered]
-</thinking>
-
+<analysis>
 [Summary of identified errors and their likely causes]
+</analysis>
 
-## 2. Failed Tests Analysis
-<thinking>
-[Detailed thought process about why specific tests failed]
-</thinking>
-
-[Summary of insights from analyzing failed tests]
-
-## 3. Reflection on Implementation
-<thinking>
+## 2. Reflection on Implementation
+<reflection>
 [Detailed reflection on how the implementation aligns with the problem description and solution plan]
-</thinking>
+</reflection>
 
-[Summary of key insights from the reflection]
-
-## 4. Debugging Strategy
+## 3. Debugging Strategy
+<strategy>
 [Outline of the approach to fix the identified issues]
+</strategy>
 
-## 5. Debugged Code
-
-```{PROGRAMMING_LANGUAGE}
+## 4. Debugged Code
+<code>
 [Your debugged code implementation]
-```
+</code>
 """
 
 HUMAN_PROMPT_TEMPLATE = """\
-1. ORIGINAL_CODE:
-<ORIGINAL_CODE>
-{ORIGINAL_CODE}
-</ORIGINAL_CODE>
-
-2. FAILED_TESTS:
-<FAILED_TESTS>
-{FAILED_TESTS}
-</FAILED_TESTS>
-
-3. COMPILER_ERROR (if any):
-<COMPILER_ERROR>
-{COMPILER_ERROR}
-</COMPILER_ERROR>
-
-4. SOLUTION_PLAN:
+1. SOLUTION_PLAN:
 <SOLUTION_PLAN>
 {SOLUTION_PLAN}
 </SOLUTION_PLAN>
 
-Now, analyze the provided <ORIGINAL_CODE>, <FAILED_TESTS>, <COMPILER_ERROR> (if any), and <SOLUTION_PLAN>. Provide a \
-comprehensive debugging analysis and a corrected implementation in {PROGRAMMING_LANGUAGE} that should pass all tests.
+2. ORIGINAL_CODE:
+<ORIGINAL_CODE>
+{ORIGINAL_CODE}
+</ORIGINAL_CODE>
+
+3. FAILED_TESTS:
+<FAILED_TESTS>
+{FAILED_TESTS}
+</FAILED_TESTS>
+
+4. COMPILER_ERROR (if any):
+<COMPILER_ERROR>
+{COMPILER_ERROR}
+</COMPILER_ERROR>
+
+
+Now, analyze the provided <SOLUTION_PLAN>, <ORIGINAL_CODE>, <FAILED_TESTS>, and <COMPILER_ERROR> (if any).
+"""
+
+
+def format_test_result_as_str(test_result: TestResult) -> str:
+    formatted_input = format_values(test_result.input)
+    formatted_expected = format_values(test_result.expected)
+    formatted_actual = format_values(test_result.actual)
+
+    return f"""\
+Test Case {test_result.test_index}:
+Input:
+{formatted_input}
+Expected:
+{formatted_expected}
+Got:
+{formatted_actual}
+Error: {test_result.error_message}
 """
 
 
@@ -108,16 +117,38 @@ class DebuggerAgent:
                 HumanMessagePromptTemplate.from_template(HUMAN_PROMPT_TEMPLATE),
             ]
         )
-        self.runnable = self.prompt | self.llm
+        self.runnable = (
+                self.prompt
+                | self.llm
+                | StrOutputParser()
+                | (lambda text: re.search(r"<code>(.*?)</code>", text, flags=re.DOTALL).group(1).strip())
+        )
 
     async def __call__(self, state: State) -> dict:
+        failed_cases = state.get('test_evaluation_result').debug_info.failed_cases
+        if len(failed_cases) > 10:
+            failed_cases = random.sample(failed_cases, k=10)
+        failed_cases_as_str = '\n\n'.join(format_test_result_as_str(case) for case in failed_cases)
+
+        current_code = state.get('code')
+
+        compiler_error = state.get('test_evaluation_result').debug_info.compile_error_message
+        compiler_error = compiler_error if compiler_error is not None else 'No compiler error'
+
         plans_sorted = state["gen_plans"].plans
-        i = state["k_current"]
+        t = state["t_current"]
+        solution_plan = f'Algorith name: {plans_sorted[t].algorithm_name}\nPlan: {plans_sorted[t].plan}'
         chain_in = {
-            'simplified_problem': state["simplified_problem"],
-            'public_tests': state["public_tests"],
-            'programming_language': state["programming_language"],
-            'gen_plan': plans_sorted[i],
+            'SOLUTION_PLAN': solution_plan,
+            'ORIGINAL_CODE': current_code,
+            'FAILED_TESTS': failed_cases_as_str,
+            'COMPILER_ERROR': compiler_error,
         }
-        ai_msg = await self.runnable.with_config(configurable={"llm_temperature": 0.3}).ainvoke(chain_in)
-        return {"ai_gen_tests": ai_msg}
+        ai_msg = await self.runnable.with_config(configurable={"llm_temperature": 0.5}).ainvoke(chain_in)
+        t_current_update = t+1 if state["k_current"]+1 >= state["k_debug"] else t
+        return {
+            "code": ai_msg,
+            "k_tries": state["k_tries"]+1,
+            "k_current": state["k_current"] + 1,
+            "t_current": t_current_update,
+        }
