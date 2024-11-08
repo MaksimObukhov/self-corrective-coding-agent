@@ -58,7 +58,7 @@ based on the unit tests and the solution plan.
 
 ## Implementation Requirements:
 Create exactly ONE function 'solve' that:
-- Takes input parameters as manual input
+- Takes input parameters as string, avoid requirement of manual input with input()
 - Implements the algorithm described in the solution plan
 - Prints the result (print or use I/O)
 

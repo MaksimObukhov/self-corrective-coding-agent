@@ -37,7 +37,8 @@ debugged code that passes all tests.
 4. Implement fixes to address the identified issues:
    - Correct any syntax errors
    - Modify logic to handle failed test cases
-   - Refactor code if necessary to better align with the problem description and solution plan
+   - Refactor code if necessary to better align with the problem description and solution plan, \
+   avoid using of manual input with input()
 
 ## Output Format:
 Present your analysis, reflection, debugging strategy and debugged code solution within corresponding tags. \
