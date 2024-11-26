@@ -18,19 +18,8 @@ from agent.graph.utils.state import State, TestCase
 from config import CONFIG
 
 
-# class GraphConfig(TypedDict):
-#     model_name: Literal["anthropic", "openai_4o", "openai_4o_mini"]
-
-
-# llm = ChatAnthropic(model_name="claude-3-5-sonnet-20241022", anthropic_api_key=CONFIG.anthropic_api_key).configurable_fields(
-#     temperature=ConfigurableField(
-#         id="llm_temperature",
-#         name="LLM Temperature",
-#         description="The temperature of the LLM",
-#     )
-# )
-model = "gpt-4o-2024-08-06"
-# model = "gpt-4o-mini-2024-07-18"
+# model = "gpt-4o-2024-08-06"
+model = "gpt-4o-mini-2024-07-18"
 llm = ChatOpenAI(model_name=model, openai_api_key=CONFIG.openai_api_key, timeout=90).configurable_fields(
     temperature=ConfigurableField(
         id="llm_temperature",

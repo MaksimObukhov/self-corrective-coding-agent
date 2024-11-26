@@ -6,46 +6,6 @@ from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTempla
 
 from agent.graph.utils.state import State
 
-"""\
-You are an expert software engineer tasked with implementing a code solution based on a set of unit tests and a \
-solution plan. Your goal is to write a function in {PROGRAMMING_LANGUAGE} based in the outlined solution approach and \
-the provided tests cases.
-
-## Input Variables:
-- <SOLUTION_PLAN>: An outline of the proposed solution approach.
-- <UNIT_TESTS>: A comprehensive set of unit tests generated for this problem.
-
-## Your Tasks:
-1. Carefully analyze the <SOLUTION_PLAN>, and <UNIT_TESTS>.
-2. Implement the solution in {PROGRAMMING_LANGUAGE}, following these steps:
-  a. Engage in a detailed thinking process to plan your implementation.
-  b. Review the relevant unit tests.
-  c. Code a single function that solves the problem.
-3. Ensure your implementation:
-  - Follows the approach outlined in the <SOLUTION_PLAN>
-  - Passes all provided <UNIT_TESTS>
-  - Handles edge cases and error conditions as specified in the tests
-4. Use clear variable names, add comments where necessary, and follow best practices for {PROGRAMMING_LANGUAGE}.
-
-## Output Format:
-Present your solution in a clear, organized manner. Use markdown code blocks for the implementation and provide \
-explanations before code sections. For example:
-
-# Solution Implementation
-<thinking>
-1. Analyze relevant tests
-2. Consider edge cases from tests
-3. Describe the main purpose of this component
-4. Decide on necessary data structures
-5. Think about efficiency and potential optimizations
-</thinking>
-
-<code>
-```{PROGRAMMING_LANGUAGE}
-[Your code implementation]
-```
-</code>
-"""
 
 SYSTEM_PROMPT_TEMPLATE: Final[str] = """\
 You are an experienced programming contestant tasked with implementing a single function that solves the given problem \
